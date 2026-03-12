@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface RegisterDeliveryRequest {
+  name: string;
+  phone: string;
+  email: string;
+  password: string;
+  vehicle?: string;
 }

@@ -1,22 +1,28 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Tiligo delivery app API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: shops
+    description: Shop operations
+  - name: products
+    description: Product operations
+  - name: orders
+    description: Order operations
+  - name: delivery
+    description: Delivery person operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +30,299 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /shops:
+    get:
+      operationId: listShops
+      tags: [shops]
+      summary: List all shops
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of shops
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shop"
+    post:
+      operationId: createShop
+      tags: [shops]
+      summary: Register a shop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShopRequest"
+      responses:
+        "201":
+          description: Shop created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shop"
+
+  /shops/{shopId}:
+    get:
+      operationId: getShop
+      tags: [shops]
+      summary: Get a shop
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shop details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shop"
+
+  /shops/{shopId}/products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List shop products
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /shops/{shopId}/products/{productId}:
+    put:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+      responses:
+        "200":
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete a product
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product deleted
+
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List orders
+      parameters:
+        - name: shopId
+          in: query
+          schema:
+            type: string
+        - name: deliveryPersonId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get an order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+    patch:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderStatusRequest"
+      responses:
+        "200":
+          description: Order updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /delivery/register:
+    post:
+      operationId: registerDelivery
+      tags: [delivery]
+      summary: Register as delivery person
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDeliveryRequest"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryPerson"
+
+  /delivery/login:
+    post:
+      operationId: loginDelivery
+      tags: [delivery]
+      summary: Login as delivery person
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryPerson"
+
+  /shops/login:
+    post:
+      operationId: loginShop
+      tags: [shops]
+      summary: Login as shop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shop"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +333,327 @@ components:
       required:
         - status
 
+    Shop:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        imageUrl:
+          type: string
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        deliveryTime:
+          type: string
+        deliveryFee:
+          type: number
+        minOrder:
+          type: number
+        isOpen:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - category
+        - address
+        - city
+        - phone
+        - email
+        - isOpen
+        - createdAt
+
+    CreateShopRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        imageUrl:
+          type: string
+        deliveryTime:
+          type: string
+        deliveryFee:
+          type: number
+        minOrder:
+          type: number
+      required:
+        - name
+        - category
+        - address
+        - city
+        - phone
+        - email
+        - password
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        shopId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        imageUrl:
+          type: string
+        category:
+          type: string
+        isAvailable:
+          type: boolean
+        suggestions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - shopId
+        - name
+        - price
+        - isAvailable
+        - createdAt
+
+    CreateProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        imageUrl:
+          type: string
+        category:
+          type: string
+        isAvailable:
+          type: boolean
+        suggestions:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - price
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        shopId:
+          type: string
+        shopName:
+          type: string
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        customerAddress:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        totalAmount:
+          type: number
+        deliveryFee:
+          type: number
+        status:
+          type: string
+          enum: [pending, accepted, preparing, picked_up, delivered, cancelled]
+        deliveryPersonId:
+          type: string
+        deliveryPersonName:
+          type: string
+        notes:
+          type: string
+        estimatedDeliveryTime:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - shopId
+        - shopName
+        - customerName
+        - customerPhone
+        - customerAddress
+        - items
+        - totalAmount
+        - status
+        - createdAt
+        - updatedAt
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        productName:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+        suggestions:
+          type: array
+          items:
+            type: string
+      required:
+        - productId
+        - productName
+        - quantity
+        - price
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        shopId:
+          type: string
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        customerAddress:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemRequest"
+        notes:
+          type: string
+      required:
+        - shopId
+        - customerName
+        - customerPhone
+        - customerAddress
+        - items
+
+    OrderItemRequest:
+      type: object
+      properties:
+        productId:
+          type: string
+        productName:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+        suggestions:
+          type: array
+          items:
+            type: string
+      required:
+        - productId
+        - productName
+        - quantity
+        - price
+
+    UpdateOrderStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, accepted, preparing, picked_up, delivered, cancelled]
+        deliveryPersonId:
+          type: string
+        deliveryPersonName:
+          type: string
+        estimatedDeliveryTime:
+          type: string
+      required:
+        - status
+
+    DeliveryPerson:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        vehicle:
+          type: string
+        isAvailable:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - phone
+        - email
+        - isAvailable
+        - createdAt
+
+    RegisterDeliveryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        vehicle:
+          type: string
+      required:
+        - name
+        - phone
+        - email
+        - password
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password

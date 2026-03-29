@@ -19,6 +19,8 @@ export const shopsTable = pgTable("shops", {
   deliveryFee: real("delivery_fee").default(1.5),
   minOrder: real("min_order").default(3),
   isOpen: boolean("is_open").default(true),
+  lat: real("lat"),
+  lng: real("lng"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -51,6 +53,8 @@ export const deliveryPersonsTable = pgTable("delivery_persons", {
   password: text("password").notNull(),
   vehicle: text("vehicle"),
   isAvailable: boolean("is_available").default(true),
+  currentLat: real("current_lat"),
+  currentLng: real("current_lng"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -62,9 +66,13 @@ export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
   shopId: integer("shop_id").notNull().references(() => shopsTable.id),
   shopName: text("shop_name").notNull(),
+  shopLat: real("shop_lat"),
+  shopLng: real("shop_lng"),
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone").notNull(),
   customerAddress: text("customer_address").notNull(),
+  customerLat: real("customer_lat"),
+  customerLng: real("customer_lng"),
   items: jsonb("items").notNull().$type<Array<{
     productId: string;
     productName: string;
@@ -77,8 +85,11 @@ export const ordersTable = pgTable("orders", {
   status: text("status").notNull().default("pending"),
   deliveryPersonId: text("delivery_person_id"),
   deliveryPersonName: text("delivery_person_name"),
+  deliveryLat: real("delivery_lat"),
+  deliveryLng: real("delivery_lng"),
   notes: text("notes"),
   estimatedDeliveryTime: text("estimated_delivery_time"),
+  couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

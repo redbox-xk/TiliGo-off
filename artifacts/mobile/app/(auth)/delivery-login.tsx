@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import {
-  View, Text, StyleSheet, TextInput, Pressable, ScrollView,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/colors';
-import * as Haptics from 'expo-haptics';
+import Logo from '@/components/Logo';
 
 const BASE_URL = process.env.EXPO_PUBLIC_DOMAIN ?? '';
 
@@ -21,143 +19,75 @@ export default function DeliveryLoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Gabim', 'Plotësoni të gjitha fushat');
-      return;
-    }
+    if (!email || !password) { Alert.alert('Gabim', 'Plotësoni të dhënat'); return; }
     setLoading(true);
     try {
       const res = await fetch(`https://${BASE_URL}/api/delivery/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        Alert.alert('Gabim', data.error ?? 'Hyrja dështoi');
-        return;
-      }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      login({
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        type: 'delivery',
-      });
-      router.dismissAll();
-      router.push('/delivery-dashboard');
-    } catch (e) {
-      Alert.alert('Gabim', 'Lidhja dështoi. Provo përsëri.');
-    } finally {
-      setLoading(false);
-    }
+      if (!res.ok) { Alert.alert('Gabim', data.error ?? 'Hyrja dështoi'); return; }
+      login({ id: String(data.id), name: data.name, email: data.email, phone: data.phone, type: 'delivery' });
+      router.dismiss(); router.push('/delivery-dashboard');
+    } catch { Alert.alert('Gabim', 'Lidhja dështoi'); }
+    finally { setLoading(false); }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={[
-          styles.container,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Pressable style={styles.closeBtn} onPress={() => router.dismissAll()}>
-          <Ionicons name="close" size={24} color={Colors.text} />
-        </Pressable>
-
-        <View style={styles.iconContainer}>
-          <View style={styles.icon}>
-            <Ionicons name="bicycle" size={40} color={Colors.primary} />
-          </View>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable style={styles.closeBtn} onPress={() => router.dismiss()}>
+            <Ionicons name="close" size={22} color={Colors.text} />
+          </Pressable>
         </View>
-
-        <Text style={styles.title}>Hyrja e Dërguesit</Text>
-        <Text style={styles.subtitle}>Hyrni dhe filloni të pranoni porosi</Text>
-
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} />
-              <TextInput
-                style={styles.input}
-                placeholder="email@example.com"
-                placeholderTextColor={Colors.textTertiary}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <LinearGradient colors={[Colors.primary, Colors.blue]} style={styles.hero} start={{x:0,y:0}} end={{x:1,y:1}}>
+            <Logo size="md" />
+            <Text style={styles.heroTitle}>Dërgues TiliGo</Text>
+            <Text style={styles.heroSub}>Fitoni duke dorëzuar porosi çdo ditë në Kosovë</Text>
+          </LinearGradient>
+          <View style={styles.form}>
+            <Text style={styles.formTitle}>Hyrja për dërguesit</Text>
+            <View style={styles.field}>
+              <Ionicons name="mail-outline" size={17} color={Colors.textSecondary} />
+              <TextInput style={styles.input} placeholder="Email-i" placeholderTextColor={Colors.textTertiary} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
             </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Fjalëkalimi</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.textSecondary} />
-              <TextInput
-                style={styles.input}
-                placeholder="Fjalëkalimi juaj"
-                placeholderTextColor={Colors.textTertiary}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPass}
-              />
+            <View style={styles.field}>
+              <Ionicons name="lock-closed-outline" size={17} color={Colors.textSecondary} />
+              <TextInput style={styles.input} placeholder="Fjalëkalimi" placeholderTextColor={Colors.textTertiary} value={password} onChangeText={setPassword} secureTextEntry={!showPass} />
               <Pressable onPress={() => setShowPass(!showPass)}>
-                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={18} color={Colors.textSecondary} />
+                <Ionicons name={showPass ? "eye-off-outline" : "eye-outline"} size={17} color={Colors.textSecondary} />
               </Pressable>
             </View>
+            <Pressable style={({ pressed }) => [styles.loginBtn, pressed && { opacity: 0.9 }]} onPress={handleLogin} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnTxt}>Hyr</Text>}
+            </Pressable>
+            <Pressable style={styles.registerLink} onPress={() => router.push('/(auth)/delivery-register')}>
+              <Text style={styles.registerLinkTxt}>Nuk jeni regjistruar? <Text style={{ color: Colors.primary, fontFamily: 'Inter_600SemiBold' }}>Bashkohuni si dërgues</Text></Text>
+            </Pressable>
           </View>
-
-          <Pressable
-            style={({ pressed }) => [styles.loginBtn, pressed && { opacity: 0.88 }]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnText}>Hyr</Text>}
-          </Pressable>
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Nuk keni llogari?</Text>
-          <Pressable onPress={() => router.replace('/(auth)/delivery-register')}>
-            <Text style={styles.footerLink}>Regjistrohu si dërgues</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: Colors.background, paddingHorizontal: 24 },
-  closeBtn: { alignSelf: 'flex-end', padding: 4 },
-  iconContainer: { alignItems: 'center', marginTop: 24, marginBottom: 24 },
-  icon: {
-    width: 88, height: 88, borderRadius: 24,
-    backgroundColor: Colors.primary + '15',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 26, color: Colors.text, textAlign: 'center' },
-  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 15, color: Colors.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: 32 },
-  form: { gap: 18 },
-  inputGroup: { gap: 8 },
-  label: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.text },
-  inputWrapper: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surface, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 14, gap: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { paddingHorizontal: 16, paddingBottom: 8, alignItems: 'flex-start' },
+  closeBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.surfaceSecondary, alignItems: 'center', justifyContent: 'center' },
+  content: { paddingBottom: 40 },
+  hero: { marginHorizontal: 20, borderRadius: 20, padding: 28, alignItems: 'center', gap: 10, marginBottom: 24 },
+  heroTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, color: '#fff' },
+  heroSub: { fontFamily: 'Inter_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'center' },
+  form: { paddingHorizontal: 20, gap: 14 },
+  formTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.text, marginBottom: 4 },
+  field: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, gap: 10, borderWidth: 1, borderColor: Colors.border },
   input: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 15, color: Colors.text },
-  loginBtn: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  loginBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#fff' },
-  footer: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 32 },
-  footerText: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary },
-  footerLink: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary },
+  loginBtn: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 17, alignItems: 'center', shadowColor: Colors.primary, shadowOffset: {width:0,height:4}, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
+  loginBtnTxt: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#fff' },
+  registerLink: { alignItems: 'center', paddingVertical: 4 },
+  registerLinkTxt: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary },
 });

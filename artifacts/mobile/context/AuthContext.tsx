@@ -9,14 +9,7 @@ export interface AuthUser {
   email: string;
   phone?: string;
   type: UserType;
-  shopData?: {
-    category?: string;
-    address?: string;
-    city?: string;
-    deliveryFee?: number;
-    deliveryTime?: string;
-    isOpen?: boolean;
-  };
+  shopData?: { category?: string; address?: string; city?: string; deliveryFee?: number; deliveryTime?: string; isOpen?: boolean; imageUrl?: string };
 }
 
 interface AuthContextValue {
@@ -28,8 +21,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-const STORAGE_KEY = '@tiligo_user';
+const STORAGE_KEY = '@tiligo_user_v2';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -37,33 +29,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(data => {
-      if (data) {
-        try {
-          setUser(JSON.parse(data));
-        } catch {}
-      }
+      if (data) { try { setUser(JSON.parse(data)); } catch {} }
       setIsLoading(false);
     });
   }, []);
 
-  const login = (u: AuthUser) => {
-    setUser(u);
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-  };
+  const login = (u: AuthUser) => { setUser(u); AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(u)); };
+  const logout = () => { setUser(null); AsyncStorage.removeItem(STORAGE_KEY); };
 
-  const logout = () => {
-    setUser(null);
-    AsyncStorage.removeItem(STORAGE_KEY);
-  };
-
-  const value = useMemo(() => ({
-    user,
-    userType: user?.type ?? null,
-    login,
-    logout,
-    isLoading,
-  }), [user, isLoading]);
-
+  const value = useMemo(() => ({ user, userType: user?.type ?? null, login, logout, isLoading }), [user, isLoading]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

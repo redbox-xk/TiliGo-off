@@ -1,30 +1,40 @@
 export const Colors = {
-  primary: "#FF3B30",
-  primaryLight: "#FF6B63",
-  primaryDark: "#CC2F26",
-  secondary: "#FF9500",
-  accent: "#34C759",
-  
-  background: "#FAFAFA",
+  primary: "#00A651",
+  primaryDark: "#007A3A",
+  primaryLight: "#4DC87A",
+  primaryGhost: "#E8F8EE",
+
+  blue: "#0066CC",
+  blueLight: "#3388FF",
+  blueGhost: "#E6F0FF",
+
+  secondary: "#FF6B00",
+  secondaryLight: "#FF9B4D",
+  secondaryGhost: "#FFF0E6",
+
+  success: "#00A651",
+  warning: "#F5A623",
+  error: "#E03131",
+  info: "#0066CC",
+
+  background: "#F7F8FA",
   surface: "#FFFFFF",
-  surfaceSecondary: "#F5F5F5",
-  surfaceTertiary: "#EEEEEE",
-  
-  text: "#1A1A1A",
-  textSecondary: "#6B6B6B",
-  textTertiary: "#ABABAB",
+  surfaceSecondary: "#F2F4F7",
+  surfaceTertiary: "#E8EAED",
+
+  text: "#12151C",
+  textSecondary: "#6B7280",
+  textTertiary: "#9CA3AF",
   textOnPrimary: "#FFFFFF",
-  
-  border: "#E8E8E8",
-  borderLight: "#F0F0F0",
-  
-  success: "#34C759",
-  warning: "#FF9500",
-  error: "#FF3B30",
-  info: "#007AFF",
-  
-  shadow: "rgba(0,0,0,0.08)",
-  overlay: "rgba(0,0,0,0.5)",
+  textOnDark: "#FFFFFF",
+
+  border: "#E5E7EB",
+  borderLight: "#F3F4F6",
+  borderFocus: "#00A651",
+
+  overlay: "rgba(0,0,0,0.55)",
+  shadow: "rgba(0,0,0,0.10)",
+  shadowStrong: "rgba(0,0,0,0.18)",
 };
 
 export default Colors;

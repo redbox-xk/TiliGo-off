@@ -1,322 +1,220 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, Pressable, ScrollView,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Switch,
+  View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, Alert,
+  KeyboardAvoidingView, Platform, ScrollView, Switch,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/colors';
-import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 
 const BASE_URL = process.env.EXPO_PUBLIC_DOMAIN ?? '';
-
-const PRODUCT_CATEGORIES = [
-  'Pjata kryesore', 'Aperitiv', 'Supa', 'Sallatë', 'Pica', 'Burger',
-  'Sandwich', 'Pasta', 'Sushi', 'Dëshira', 'Pije', 'Kafe', 'Tjera',
-];
-
-const COMMON_SUGGESTIONS = [
-  'Ketchup', 'Mustard', 'Majonez', 'Djathë shtesë', 'Salcë pikante',
-  'Pa qepë', 'Pa hudër', 'Pak kripë', 'Extra pikant', 'Pa zarzavate',
-  'Bukë shtesë', 'Oliva', 'Kampionjon shtesë',
-];
+const CATEGORIES = ['Pica', 'Burger', 'Ushqim kryesor', 'Sallatë', 'Supë', 'Dessert', 'Pije', 'Tjera'];
+const MARKUP = 1.20;
 
 export default function AddProductScreen() {
-  const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const qc = useQueryClient();
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: 'Pjata kryesore',
-    imageUrl: '',
-    isAvailable: true,
+    name: '', description: '', price: '', category: 'Ushqim kryesor',
+    isAvailable: true, suggestions: '',
   });
-  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
-  const [customSuggestion, setCustomSuggestion] = useState('');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const update = (field: string, value: string | boolean) => setForm(p => ({ ...p, [field]: value }));
+  const set = (k: string) => (v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
-  const toggleSuggestion = (sugg: string) => {
-    setSelectedSuggestions(prev =>
-      prev.includes(sugg) ? prev.filter(s => s !== sugg) : [...prev, sugg]
-    );
-    Haptics.selectionAsync();
-  };
-
-  const addCustomSuggestion = () => {
-    if (customSuggestion.trim() && !selectedSuggestions.includes(customSuggestion.trim())) {
-      setSelectedSuggestions(prev => [...prev, customSuggestion.trim()]);
-      setCustomSuggestion('');
+  const pickImage = async () => {
+    if (Platform.OS === 'web') { Alert.alert('Imazhi', 'Ngarkimi i imazheve disponueshëm vetëm në celular'); return; }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Leje refuzuar', 'Duhet qasja në galeri'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, aspect: [4, 3], quality: 0.75, base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64 ?? null);
     }
   };
 
-  const handleSave = async () => {
-    if (!form.name.trim() || !form.price.trim()) {
-      Alert.alert('Gabim', 'Emri dhe çmimi janë të detyrueshëm');
-      return;
+  const takePhoto = async () => {
+    if (Platform.OS === 'web') { await pickImage(); return; }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Leje refuzuar', 'Duhet qasja në kamerë'); return; }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true, aspect: [4, 3], quality: 0.75, base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64 ?? null);
     }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name || !form.price) { Alert.alert('Gabim', 'Emri dhe çmimi janë të detyrueshëm'); return; }
     const price = parseFloat(form.price);
-    if (isNaN(price) || price <= 0) {
-      Alert.alert('Gabim', 'Çmimi duhet të jetë një numër pozitiv');
-      return;
-    }
-
+    if (isNaN(price) || price <= 0) { Alert.alert('Gabim', 'Çmimi duhet të jetë numër pozitiv'); return; }
     setLoading(true);
     try {
-      const res = await fetch(`https://${BASE_URL}/api/shops/${user?.id}/products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description || undefined,
-          price,
-          category: form.category,
-          imageUrl: form.imageUrl || undefined,
-          isAvailable: form.isAvailable,
-          suggestions: selectedSuggestions,
-        }),
+      const body: Record<string, unknown> = {
+        shopId: user!.id,
+        name: form.name.trim(),
+        description: form.description.trim(),
+        price,
+        category: form.category,
+        isAvailable: form.isAvailable,
+        suggestions: form.suggestions.split(',').map(s => s.trim()).filter(Boolean),
+      };
+      if (imageBase64) body.imageBase64 = imageBase64;
+      const res = await fetch(`https://${BASE_URL}/api/products`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error('Gabim');
-      
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await queryClient.invalidateQueries({ queryKey: ['shopProducts'] });
-      router.dismiss();
-    } catch {
-      Alert.alert('Gabim', 'Nuk mund të shtohet produkti');
-    } finally {
-      setLoading(false);
-    }
+      const data = await res.json();
+      if (!res.ok) { Alert.alert('Gabim', data.error ?? 'Shtimi dështoi'); return; }
+      qc.invalidateQueries({ queryKey: ['products', user?.id] });
+      Alert.alert('✅ Sukses!', `Produkti "${form.name}" u shtua!`, [{ text: 'OK', onPress: () => router.dismiss() }]);
+    } catch { Alert.alert('Gabim', 'Lidhja dështoi'); }
+    finally { setLoading(false); }
   };
+
+  const deliveryPrice = parseFloat(form.price) > 0 ? (parseFloat(form.price) * MARKUP).toFixed(2) : '0.00';
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Produkt i Ri</Text>
           <Pressable style={styles.closeBtn} onPress={() => router.dismiss()}>
-            <Ionicons name="close" size={24} color={Colors.text} />
+            <Ionicons name="close" size={22} color={Colors.text} />
           </Pressable>
+          <Text style={styles.title}>Produkt i ri</Text>
+          <Text style={styles.shopTag}>{user?.name}</Text>
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Informacionet bazë</Text>
-            <InputField icon="fast-food-outline" label="Emri i produktit *" placeholder="Pz. Pizza Margherita">
-              <TextInput
-                style={styles.input}
-                placeholder="Pz. Pizza Margherita"
-                placeholderTextColor={Colors.textTertiary}
-                value={form.name}
-                onChangeText={v => update('name', v)}
-              />
-            </InputField>
-            <InputField icon="document-text-outline" label="Përshkrimi">
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                placeholder="Përshkrim i shkurtër i produktit..."
-                placeholderTextColor={Colors.textTertiary}
-                value={form.description}
-                onChangeText={v => update('description', v)}
-                multiline
-                numberOfLines={3}
-              />
-            </InputField>
-            <InputField icon="pricetag-outline" label="Çmimi (€) *">
-              <TextInput
-                style={styles.input}
-                placeholder="0.00"
-                placeholderTextColor={Colors.textTertiary}
-                value={form.price}
-                onChangeText={v => update('price', v)}
-                keyboardType="decimal-pad"
-              />
-            </InputField>
-            <InputField icon="image-outline" label="URL e fotos (opcionale)">
-              <TextInput
-                style={styles.input}
-                placeholder="https://..."
-                placeholderTextColor={Colors.textTertiary}
-                value={form.imageUrl}
-                onChangeText={v => update('imageUrl', v)}
-                autoCapitalize="none"
-              />
-            </InputField>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Kategoria</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.catRow}>
-                {PRODUCT_CATEGORIES.map(cat => (
-                  <Pressable
-                    key={cat}
-                    style={[styles.catChip, form.category === cat && styles.catChipActive]}
-                    onPress={() => update('category', cat)}
-                  >
-                    <Text style={[styles.catText, form.category === cat && styles.catTextActive]}>{cat}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sugjerimet</Text>
-            <Text style={styles.sectionSub}>Klientët mund të zgjedhin sugjerimet kur porosisin</Text>
-            <View style={styles.suggestionsGrid}>
-              {COMMON_SUGGESTIONS.map(sugg => {
-                const selected = selectedSuggestions.includes(sugg);
-                return (
-                  <Pressable
-                    key={sugg}
-                    style={[styles.suggChip, selected && styles.suggChipActive]}
-                    onPress={() => toggleSuggestion(sugg)}
-                  >
-                    {selected && <Ionicons name="checkmark" size={12} color="#fff" />}
-                    <Text style={[styles.suggText, selected && styles.suggTextActive]}>{sugg}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={styles.customSuggRow}>
-              <View style={[styles.inputWrapper, { flex: 1 }]}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Sugjerim i personalizuar"
-                  placeholderTextColor={Colors.textTertiary}
-                  value={customSuggestion}
-                  onChangeText={setCustomSuggestion}
-                  onSubmitEditing={addCustomSuggestion}
-                />
-              </View>
-              <Pressable style={styles.addSuggBtn} onPress={addCustomSuggestion}>
-                <Ionicons name="add" size={20} color="#fff" />
+        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {/* Image picker */}
+          <View style={styles.imageSection}>
+            <Pressable style={styles.imagePicker} onPress={pickImage}>
+              {imageUri ? (
+                <Image source={{ uri: imageUri }} style={styles.previewImage} contentFit="cover" />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="image-outline" size={36} color={Colors.textTertiary} />
+                  <Text style={styles.imagePlaceholderTxt}>Zgjidh imazh</Text>
+                </View>
+              )}
+            </Pressable>
+            <View style={styles.imageActions}>
+              <Pressable style={styles.imageBtn} onPress={pickImage}>
+                <Ionicons name="images-outline" size={16} color={Colors.primary} />
+                <Text style={styles.imageBtnTxt}>Galeria</Text>
+              </Pressable>
+              <Pressable style={styles.imageBtn} onPress={takePhoto}>
+                <Ionicons name="camera-outline" size={16} color={Colors.primary} />
+                <Text style={styles.imageBtnTxt}>Kamera</Text>
               </Pressable>
             </View>
+          </View>
 
-            {selectedSuggestions.filter(s => !COMMON_SUGGESTIONS.includes(s)).map(sugg => (
-              <Pressable
-                key={sugg}
-                style={[styles.suggChip, styles.suggChipActive]}
-                onPress={() => toggleSuggestion(sugg)}
-              >
-                <Ionicons name="checkmark" size={12} color="#fff" />
-                <Text style={styles.suggTextActive}>{sugg}</Text>
-                <Ionicons name="close" size={12} color="rgba(255,255,255,0.7)" />
+          {/* Fields */}
+          <Field icon="fast-food-outline" placeholder="Emri i produktit *" value={form.name} onChange={set('name')} />
+          <View style={styles.field}>
+            <Ionicons name="document-text-outline" size={16} color={Colors.textSecondary} />
+            <TextInput style={[styles.input, { minHeight: 60 }]} placeholder="Përshkrimi (opsional)" placeholderTextColor={Colors.textTertiary} value={form.description} onChangeText={set('description') as (v: string) => void} multiline />
+          </View>
+
+          {/* Price with preview */}
+          <View style={styles.priceGroup}>
+            <View style={[styles.field, { flex: 1 }]}>
+              <Ionicons name="cash-outline" size={16} color={Colors.textSecondary} />
+              <TextInput style={styles.input} placeholder="Çmimi bazë (€) *" placeholderTextColor={Colors.textTertiary} value={form.price} onChangeText={set('price') as (v: string) => void} keyboardType="decimal-pad" />
+            </View>
+            <View style={styles.deliveryPriceCard}>
+              <Text style={styles.deliveryPriceLabel}>+20% dërgim</Text>
+              <Text style={styles.deliveryPriceVal}>€{deliveryPrice}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.fieldLabel}>Kategoria</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
+            {CATEGORIES.map(c => (
+              <Pressable key={c} style={[styles.catChip, form.category === c && styles.catChipActive]} onPress={() => set('category')(c)}>
+                <Text style={[styles.catChipTxt, form.category === c && styles.catChipTxtActive]}>{c}</Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
-          <View style={styles.section}>
-            <View style={styles.availableRow}>
-              <View>
-                <Text style={styles.availableLabel}>I disponueshëm</Text>
-                <Text style={styles.availableSub}>Klientët mund ta porosisin</Text>
-              </View>
-              <Switch
-                value={form.isAvailable}
-                onValueChange={v => update('isAvailable', v)}
-                trackColor={{ false: Colors.border, true: Colors.success }}
-                thumbColor="#fff"
-              />
+          <Field icon="add-circle-outline" placeholder="Sugjerimet (ndan me presje, p.sh. sallatë,çaj)" value={form.suggestions} onChange={set('suggestions')} />
+
+          <View style={styles.toggleRow}>
+            <View>
+              <Text style={styles.toggleLabel}>Disponueshëm tani</Text>
+              <Text style={styles.toggleSub}>Klientët mund ta porosisin</Text>
             </View>
+            <Switch value={form.isAvailable} onValueChange={set('isAvailable')} trackColor={{ true: Colors.primary }} thumbColor="#fff" />
           </View>
 
-          <View style={{ height: 20 }} />
-        </ScrollView>
-
-        <View style={[styles.footer, { paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) + 16 }]}>
-          <Pressable
-            style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.88 }]}
-            onPress={handleSave}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
+          <Pressable style={({ pressed }) => [styles.submitBtn, pressed && { opacity: 0.9 }]} onPress={handleSubmit} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : (
               <>
-                <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                <Text style={styles.saveBtnText}>Shto Produktin</Text>
+                <Ionicons name="add-circle" size={22} color="#fff" />
+                <Text style={styles.submitTxt}>Shto produktin</Text>
               </>
             )}
           </Pressable>
-        </View>
+          <View style={{ height: 20 }} />
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function InputField({ icon, label, children }: { icon: string; label: string; children: React.ReactNode }) {
+function Field({ icon, placeholder, value, onChange }: any) {
   return (
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrapper}>
-        <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color={Colors.textSecondary} />
-        {children}
-      </View>
+    <View style={styles.field}>
+      <Ionicons name={icon} size={16} color={Colors.textSecondary} />
+      <TextInput style={styles.input} placeholder={placeholder} placeholderTextColor={Colors.textTertiary} value={value} onChangeText={onChange} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.text },
-  closeBtn: { padding: 4 },
-  scrollContent: { paddingHorizontal: 20, gap: 24, paddingBottom: 20 },
-  section: { gap: 14 },
-  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.text },
-  sectionSub: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginTop: -8 },
-  inputGroup: { gap: 8 },
-  label: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.text },
-  inputWrapper: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: Colors.surface, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 13, gap: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  input: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 15, color: Colors.text },
-  multilineInput: { minHeight: 70 },
-  catRow: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
-  catChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingBottom: 16 },
+  closeBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.surfaceSecondary, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.text, flex: 1 },
+  shopTag: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary },
+  form: { paddingHorizontal: 20, gap: 12, paddingBottom: 40 },
+  imageSection: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  imagePicker: { width: 110, height: 90, borderRadius: 14, overflow: 'hidden', borderWidth: 2, borderColor: Colors.border, borderStyle: 'dashed' },
+  previewImage: { width: '100%', height: '100%' },
+  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.surfaceSecondary },
+  imagePlaceholderTxt: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textTertiary },
+  imageActions: { flex: 1, gap: 8 },
+  imageBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primaryGhost, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  imageBtnTxt: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary },
+  field: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, gap: 8, borderWidth: 1, borderColor: Colors.border },
+  input: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.text },
+  priceGroup: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  deliveryPriceCard: { backgroundColor: Colors.primaryGhost, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', minWidth: 80 },
+  deliveryPriceLabel: { fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.primary },
+  deliveryPriceVal: { fontFamily: 'Inter_700Bold', fontSize: 16, color: Colors.primary },
+  fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  catRow: { gap: 8, paddingVertical: 4 },
+  catChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   catChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
-  catText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
-  catTextActive: { color: '#fff' },
-  suggestionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  suggChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-  },
-  suggChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  suggText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
-  suggTextActive: { color: '#fff' },
-  customSuggRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  addSuggBtn: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-  },
-  availableRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 14, padding: 16 },
-  availableLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.text },
-  availableSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  footer: { paddingHorizontal: 20, paddingTop: 16, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border },
-  saveBtn: {
-    backgroundColor: Colors.secondary, borderRadius: 14, paddingVertical: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-  },
-  saveBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#fff' },
+  catChipTxt: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
+  catChipTxtActive: { fontFamily: 'Inter_600SemiBold', color: '#fff' },
+  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.border },
+  toggleLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.text },
+  toggleSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  submitBtn: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 17, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, shadowColor: Colors.primary, shadowOffset: {width:0,height:4}, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
+  submitTxt: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#fff' },
 });

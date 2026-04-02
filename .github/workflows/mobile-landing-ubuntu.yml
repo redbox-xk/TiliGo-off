@@ -1,0 +1,89 @@
+name: Mobile Landing CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/mobile/**"
+      - ".github/workflows/mobile-landing-ubuntu.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-landing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build static mobile landing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build mobile static bundle
+        run: pnpm --filter @workspace/mobile build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-static-build
+          path: artifacts/mobile/static-build
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to Ubuntu server
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' && secrets.UBUNTU_HOST != '' && secrets.UBUNTU_USER != '' && secrets.UBUNTU_SSH_KEY != '' }}
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-static-build
+          path: mobile-static-build
+
+      - name: Prepare SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.UBUNTU_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Upload bundle to server
+        env:
+          UBUNTU_HOST: ${{ secrets.UBUNTU_HOST }}
+          UBUNTU_PORT: ${{ secrets.UBUNTU_PORT }}
+          UBUNTU_USER: ${{ secrets.UBUNTU_USER }}
+          UBUNTU_APP_DIR: ${{ secrets.UBUNTU_APP_DIR }}
+        run: |
+          PORT="${UBUNTU_PORT:-22}"
+          APP_DIR="${UBUNTU_APP_DIR:-/opt/tiligo-mobile}"
+
+          ssh -p "$PORT" -o StrictHostKeyChecking=no "$UBUNTU_USER@$UBUNTU_HOST" "mkdir -p '$APP_DIR/static-build'"
+          rsync -az --delete -e "ssh -p $PORT -o StrictHostKeyChecking=no" mobile-static-build/ "$UBUNTU_USER@$UBUNTU_HOST:$APP_DIR/static-build/"
+
+      - name: Restart service
+        env:
+          UBUNTU_HOST: ${{ secrets.UBUNTU_HOST }}
+          UBUNTU_PORT: ${{ secrets.UBUNTU_PORT }}
+          UBUNTU_USER: ${{ secrets.UBUNTU_USER }}
+          UBUNTU_SERVICE_NAME: ${{ secrets.UBUNTU_SERVICE_NAME }}
+        run: |
+          PORT="${UBUNTU_PORT:-22}"
+          SERVICE_NAME="${UBUNTU_SERVICE_NAME:-tiligo-mobile}"
+          ssh -p "$PORT" -o StrictHostKeyChecking=no "$UBUNTU_USER@$UBUNTU_HOST" "sudo systemctl restart '$SERVICE_NAME' && sudo systemctl status '$SERVICE_NAME' --no-pager"

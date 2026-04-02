@@ -1,5 +1,5 @@
 /**
- * Standalone production server for Expo static builds.
+ * Standalone production server for static mobile builds.
  *
  * Serves the output of build.js (static-build/) with two special routes:
  * - GET / or /manifest with expo-platform header → platform manifest JSON
@@ -70,11 +70,15 @@ function serveLandingPage(req, res, landingPageTemplate, appName) {
   const protocol = forwardedProto || "https";
   const host = req.headers["x-forwarded-host"] || req.headers["host"];
   const baseUrl = `${protocol}://${host}`;
-  const expsUrl = `${host}`;
+  const appLinkUrl = `${baseUrl}${basePath}`;
+  const appStoreUrl = process.env.APP_STORE_URL || "#";
+  const playStoreUrl = process.env.PLAY_STORE_URL || "#";
 
   const html = landingPageTemplate
     .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
-    .replace(/EXPS_URL_PLACEHOLDER/g, expsUrl)
+    .replace(/APP_LINK_URL_PLACEHOLDER/g, appLinkUrl)
+    .replace(/APP_STORE_URL_PLACEHOLDER/g, appStoreUrl)
+    .replace(/PLAY_STORE_URL_PLACEHOLDER/g, playStoreUrl)
     .replace(/APP_NAME_PLACEHOLDER/g, appName);
 
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -131,5 +135,5 @@ const server = http.createServer((req, res) => {
 
 const port = parseInt(process.env.PORT || "3000", 10);
 server.listen(port, "0.0.0.0", () => {
-  console.log(`Serving static Expo build on port ${port}`);
+  console.log(`Serving static mobile build on port ${port}`);
 });
